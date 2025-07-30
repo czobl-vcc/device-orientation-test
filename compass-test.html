@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Compass Arrow</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f0f0;
+      flex-direction: column;
+      font-family: sans-serif;
+    }
+
+    .compass {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      border: 6px solid #333;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .arrow {
+      width: 0;
+      height: 0;
+      border: 40px solid transparent;
+      border-bottom: 60px solid #e3233a;
+      position: absolute;
+      transform-origin: center bottom;
+      transition: transform 0.2s linear;
+    }
+
+    button {
+      margin-top: 30px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="compass">
+    <div class="arrow" id="arrow"></div>
+  </div>
+  <button id="enable">Enable Compass</button>
+
+  <script>
+    const enableBtn = document.getElementById('enable');
+    const arrow = document.getElementById('arrow');
+
+    let enabled = false;
+
+    function handleOrientation(event) {
+      const alpha = event.alpha;
+      if (typeof alpha === "number") {
+        // Rotate opposite of device rotation to keep arrow "pointing up"
+        arrow.style.transform = `rotate(${-alpha}deg)`;
+      }
+    }
+
+    enableBtn.addEventListener('click', () => {
+      if (typeof DeviceOrientationEvent !== "undefined" &&
+          typeof DeviceOrientationEvent.requestPermission === "function") {
+
+        // iOS 13+ Safari requires permission
+        DeviceOrientationEvent.requestPermission()
+          .then(response => {
+            if (response === "granted") {
+              window.addEventListener("deviceorientation", handleOrientation, true);
+              enableBtn.disabled = true;
+              enableBtn.textContent = "Compass Enabled";
+            } else {
+              alert("Permission denied.");
+            }
+          })
+          .catch(console.error);
+      } else {
+        // Non-iOS or older Safari (less secure, may just work)
+        window.addEventListener("deviceorientation", handleOrientation, true);
+        enableBtn.disabled = true;
+        enableBtn.textContent = "Compass Enabled";
+      }
+    });
+  </script>
+</body>
+</html>
