@@ -1,93 +1,140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compass Arrow</title>
-  <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f0f0f0;
-      flex-direction: column;
-      font-family: sans-serif;
-    }
-
-    .compass {
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      border: 6px solid #333;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .arrow {
-      width: 0;
-      height: 0;
-      border: 40px solid transparent;
-      border-bottom: 60px solid #e3233a;
-      position: absolute;
-      transform-origin: center bottom;
-      transition: transform 0.2s linear;
-    }
-
-    button {
-      margin-top: 30px;
-      padding: 10px 20px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Compass Arrow with Smooth Rotation</title>
+<style>
+  body, html {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f0f0f0;
+    font-family: Arial, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .container {
+    text-align: center;
+  }
+  #compass {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 20px auto;
+    border: 4px solid #333;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  #arrow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 70px;
+    margin-left: -10px; /* half width */
+    margin-top: -70px;  /* height */
+    background: #E3233A;
+    clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+    transform-origin: 50% 100%;
+    transition: transform 0.05s linear;
+  }
+  button {
+    font-size: 1.2em;
+    padding: 10px 20px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #status {
+    margin-top: 10px;
+    font-weight: bold;
+  }
+</style>
 </head>
 <body>
-  <div class="compass">
-    <div class="arrow" id="arrow"></div>
+  <div class="container">
+    <div id="compass">
+      <div id="arrow"></div>
+    </div>
+    <button id="enableBtn">Enable Compass</button>
+    <div id="status">Compass disabled</div>
   </div>
-  <button id="enable">Enable Compass</button>
 
-  <script>
-    const enableBtn = document.getElementById('enable');
-    const arrow = document.getElementById('arrow');
+<script>
+(() => {
+  const enableBtn = document.getElementById('enableBtn');
+  const arrow = document.getElementById('arrow');
+  const status = document.getElementById('status');
 
-    let enabled = false;
+  let lastAngle = 0;
+  let smoothing = 0.1; // 0 no movement, 1 instant
 
-    function handleOrientation(event) {
-      const alpha = event.alpha;
-      if (typeof alpha === "number") {
-        // Rotate opposite of device rotation to keep arrow "pointing up"
-        arrow.style.transform = `rotate(${-alpha}deg)`;
-      }
+  function handleOrientation(event) {
+    if (event.absolute === false) {
+      status.textContent = 'Absolute orientation not available';
+      return;
     }
 
-    enableBtn.addEventListener('click', () => {
-      if (typeof DeviceOrientationEvent !== "undefined" &&
-          typeof DeviceOrientationEvent.requestPermission === "function") {
+    let alpha = event.alpha;
+    if (alpha == null) {
+      status.textContent = 'Alpha not available';
+      return;
+    }
 
-        // iOS 13+ Safari requires permission
-        DeviceOrientationEvent.requestPermission()
-          .then(response => {
-            if (response === "granted") {
-              window.addEventListener("deviceorientation", handleOrientation, true);
-              enableBtn.disabled = true;
-              enableBtn.textContent = "Compass Enabled";
-            } else {
-              alert("Permission denied.");
-            }
-          })
-          .catch(console.error);
-      } else {
-        // Non-iOS or older Safari (less secure, may just work)
-        window.addEventListener("deviceorientation", handleOrientation, true);
-        enableBtn.disabled = true;
-        enableBtn.textContent = "Compass Enabled";
-      }
-    });
-  </script>
+    // Normalize alpha (0 - 360)
+    if (alpha < 0) alpha += 360;
+
+    // Calculate shortest direction delta
+    let delta = alpha - lastAngle;
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+
+    // Smooth angle update
+    lastAngle += delta * smoothing;
+
+    // Normalize lastAngle
+    if (lastAngle < 0) lastAngle += 360;
+    if (lastAngle >= 360) lastAngle -= 360;
+
+    // Rotate arrow (negative to point correctly)
+    arrow.style.transform = `rotate(${-lastAngle}deg)`;
+
+    status.textContent = `Heading: ${Math.round(alpha)}°`;
+  }
+
+  function requestPermissionAndStart() {
+    // For iOS 13+ devices
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation);
+            status.textContent = 'Compass enabled - move your device';
+            enableBtn.style.display = 'none';
+          } else {
+            status.textContent = 'Permission denied';
+          }
+        })
+        .catch(() => {
+          status.textContent = 'Permission request failed';
+        });
+    } else {
+      // Non iOS 13+ devices
+      window.addEventListener('deviceorientation', handleOrientation);
+      status.textContent = 'Compass enabled - move your device';
+      enableBtn.style.display = 'none';
+    }
+  }
+
+  enableBtn.addEventListener('click', () => {
+    requestPermissionAndStart();
+  });
+})();
+</script>
 </body>
 </html>
